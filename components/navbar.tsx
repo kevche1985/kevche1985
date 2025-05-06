@@ -17,6 +17,7 @@ import { useCart } from "@/context/cart-context"
 import { useAuth } from "@/context/auth-context"
 import { LoginModal } from "@/components/login-modal"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useProducts } from "@/context/product-context"
 
 export default function Navbar() {
   const { language, setLanguage } = useContext(LanguageContext) || { language: "es", setLanguage: () => {} }
@@ -34,6 +35,7 @@ export default function Navbar() {
   const [servicesTimeoutId, setServicesTimeoutId] = useState<NodeJS.Timeout | null>(null)
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false)
   const [adminTimeoutId, setAdminTimeoutId] = useState<NodeJS.Timeout | null>(null)
+  const { categories } = useProducts()
 
   const cartItemCount = getItemCount()
 
@@ -104,7 +106,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative z-50">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
@@ -123,114 +125,20 @@ export default function Navbar() {
 
               {isProductsMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-2 w-64 bg-background border rounded-lg shadow-lg p-4 z-[1000]"
+                  className="absolute left-0 top-full mt-1 w-64 bg-background border rounded-lg shadow-lg p-4 z-[9999]"
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                 >
                   <div className="grid grid-cols-2 gap-2">
-                    {language === "en" ? (
-                      <>
-                        <Link
-                          href="/products/business-cards"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Business Cards
-                        </Link>
-                        <Link
-                          href="/products/flyers"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Flyers
-                        </Link>
-                        <Link
-                          href="/products/posters"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Posters
-                        </Link>
-                        <Link
-                          href="/products/stickers"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Stickers
-                        </Link>
-                        <Link
-                          href="/products/t-shirts"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          T-Shirts
-                        </Link>
-                        <Link
-                          href="/products/mugs"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Mugs
-                        </Link>
-                        <Link
-                          href="/products/canvas"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Canvas Prints
-                        </Link>
-                        <Link
-                          href="/products/agendas-y-cuadernos"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Planners & Notebooks
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <Link
-                          href="/products/tarjetas"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Tarjetas
-                        </Link>
-                        <Link
-                          href="/products/flyers"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Flyers
-                        </Link>
-                        <Link
-                          href="/products/posters"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Posters
-                        </Link>
-                        <Link
-                          href="/products/stickers"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Stickers
-                        </Link>
-                        <Link
-                          href="/products/camisetas"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Camisetas
-                        </Link>
-                        <Link
-                          href="/products/tazas"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Tazas
-                        </Link>
-                        <Link
-                          href="/products/lienzos"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Lienzos
-                        </Link>
-                        <Link
-                          href="/products/agendas-y-cuadernos"
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Agendas y Cuadernos
-                        </Link>
-                      </>
-                    )}
+                    {categories.map((category) => (
+                      <Link
+                        key={category}
+                        href={`/products/${category.toLowerCase().replace(/\s+/g, "-")}`}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {category}
+                      </Link>
+                    ))}
                   </div>
                   <div className="mt-3 pt-3 border-t">
                     <Link href="/products" className="text-sm font-medium text-primary hover:underline">
@@ -254,7 +162,7 @@ export default function Navbar() {
 
               {isAIMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-2 w-64 bg-background border rounded-lg shadow-lg p-4 z-[1000]"
+                  className="absolute left-0 top-full mt-1 w-64 bg-background border rounded-lg shadow-lg p-4 z-[9999]"
                   onMouseEnter={handleAIMouseEnter}
                   onMouseLeave={handleAIMouseLeave}
                 >
@@ -298,7 +206,7 @@ export default function Navbar() {
 
               {isServicesMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-2 w-64 bg-background border rounded-lg shadow-lg p-4 z-[1000]"
+                  className="absolute left-0 top-full mt-1 w-64 bg-background border rounded-lg shadow-lg p-4 z-[9999]"
                   onMouseEnter={handleServicesMouseEnter}
                   onMouseLeave={handleServicesMouseLeave}
                 >
@@ -392,7 +300,7 @@ export default function Navbar() {
 
               {isMyPrintMenuOpen && (
                 <div
-                  className="absolute left-0 top-full mt-2 w-48 bg-background border rounded-lg shadow-lg p-4 z-[1000]"
+                  className="absolute left-0 top-full mt-1 w-48 bg-background border rounded-lg shadow-lg p-4 z-[9999]"
                   onMouseEnter={handleMyPrintEnter}
                   onMouseLeave={handleMyPrintLeave}
                 >
@@ -425,6 +333,12 @@ export default function Navbar() {
             >
               {language === "en" ? "About" : "Nosotros"}
             </Link>
+            <Link
+              href="/contact"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {language === "en" ? "Contact" : "Contacto"}
+            </Link>
             {user?.role === "admin" && (
               <div
                 className="relative"
@@ -449,7 +363,7 @@ export default function Navbar() {
 
                 {isAdminMenuOpen && (
                   <div
-                    className="absolute left-0 top-full mt-2 w-64 bg-background border rounded-lg shadow-lg p-4 z-[1000]"
+                    className="absolute left-0 top-full mt-1 w-64 bg-background border rounded-lg shadow-lg p-4 z-[9999]"
                     onMouseEnter={() => {
                       if (adminTimeoutId) clearTimeout(adminTimeoutId)
                       setIsAdminMenuOpen(true)
@@ -481,6 +395,12 @@ export default function Navbar() {
                         {language === "en" ? "Product Management" : "Gestión de Productos"}
                       </Link>
                       <Link
+                        href="/admin/suppliers"
+                        className="block text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {language === "en" ? "Supplier Management" : "Gestión de Proveedores"}
+                      </Link>
+                      <Link
                         href="/admin/orders"
                         className="block text-sm text-muted-foreground hover:text-primary transition-colors"
                       >
@@ -491,6 +411,12 @@ export default function Navbar() {
                         className="block text-sm text-muted-foreground hover:text-primary transition-colors"
                       >
                         {language === "en" ? "System Settings" : "Configuración del Sistema"}
+                      </Link>
+                      <Link
+                        href="/admin/system/logs"
+                        className="block text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {language === "en" ? "Log Management" : "Gestión de Registros"}
                       </Link>
                     </div>
                   </div>
@@ -516,7 +442,7 @@ export default function Navbar() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link href="/cart" className="relative p-2 rounded-full hover:bg-accent transition-colors">
+          <Link href="/cart" className="relative p-2 mr-6 rounded-full hover:bg-accent transition-colors">
             <ShoppingCart className="h-5 w-5" />
             {cartItemCount > 0 && (
               <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-primary text-[10px] font-medium flex items-center justify-center">
@@ -578,6 +504,7 @@ export default function Navbar() {
           ) : (
             <Button variant="ghost" size="icon" className="rounded-full" onClick={handleLoginClick}>
               <User className="h-5 w-5" />
+              {language === "en" ? "Login" : "Iniciar Sesión"}
             </Button>
           )}
 
@@ -691,19 +618,19 @@ export default function Navbar() {
             >
               {language === "en" ? "About" : "Nosotros"}
             </Link>
+            <Link
+              href="/contact"
+              className="text-lg font-medium text-foreground hover:text-primary transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {language === "en" ? "Contact" : "Contacto"}
+            </Link>
             {user?.role === "admin" && (
               <div className="space-y-2">
                 <p className="text-lg font-medium text-primary">{language === "en" ? "Admin" : "Administrador"}</p>
                 <div className="grid grid-cols-1 gap-1 pl-4">
                   <Link
                     href="/admin/dashboard"
-                    className="text-base text-muted-foreground hover:text-primary transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {language === "en" ? "Dashboard" : "Panel Principal"}
-                  </Link>
-                  <Link
-                    href="/admin/users"
                     className="text-base text-muted-foreground hover:text-primary transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
@@ -724,6 +651,13 @@ export default function Navbar() {
                     {language === "en" ? "Product Management" : "Gestión de Productos"}
                   </Link>
                   <Link
+                    href="/admin/suppliers"
+                    className="text-base text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {language === "en" ? "Supplier Management" : "Gestión de Proveedores"}
+                  </Link>
+                  <Link
                     href="/admin/orders"
                     className="text-base text-muted-foreground hover:text-primary transition-colors"
                     onClick={() => setIsMenuOpen(false)}
@@ -736,6 +670,13 @@ export default function Navbar() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     {language === "en" ? "System Settings" : "Configuración del Sistema"}
+                  </Link>
+                  <Link
+                    href="/admin/system/logs"
+                    className="text-base text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {language === "en" ? "Log Management" : "Gestión de Registros"}
                   </Link>
                 </div>
               </div>
@@ -768,7 +709,7 @@ export default function Navbar() {
                 }}
               >
                 <User className="mr-2 h-4 w-4" />
-                {language === "en" ? "Login / Register" : "Iniciar Sesión / Registrarse"}
+                {language === "en" ? "Login" : "Iniciar Sesión"}
               </Button>
             )}
             <div className="flex gap-4 items-center">

@@ -2,15 +2,16 @@
 
 import { useContext } from "react"
 import { LanguageContext } from "@/context/language-context"
-import { CheckCircle, Truck, Package, Home, ShoppingBag } from "lucide-react"
+import { CheckCircle, Truck, Package, Home, ShoppingBag, Clock } from "lucide-react"
 import type { OrderStatus } from "@/context/order-context"
 
 interface OrderTrackingBarProps {
   currentStatus: OrderStatus
   shippingMethod: "pickup" | "delivery"
+  className?: string
 }
 
-export function OrderTrackingBar({ currentStatus, shippingMethod }: OrderTrackingBarProps) {
+export function OrderTrackingBar({ currentStatus, shippingMethod, className = "" }: OrderTrackingBarProps) {
   const { language } = useContext(LanguageContext) || { language: "es" }
 
   const content = {
@@ -21,6 +22,10 @@ export function OrderTrackingBar({ currentStatus, shippingMethod }: OrderTrackin
       readyForPickup: "Ready for Pickup",
       shipped: "Shipped",
       delivered: "Delivered",
+      cancelled: "Cancelled",
+      estimatedTime: "Est. time:",
+      days: "days",
+      hours: "hours",
     },
     es: {
       checkoutComplete: "Pedido Realizado",
@@ -29,33 +34,96 @@ export function OrderTrackingBar({ currentStatus, shippingMethod }: OrderTrackin
       readyForPickup: "Listo para Recoger",
       shipped: "Enviado",
       delivered: "Entregado",
+      cancelled: "Cancelado",
+      estimatedTime: "Tiempo est.:",
+      days: "días",
+      hours: "horas",
     },
   }
 
   const t = language === "en" ? content.en : content.es
 
-  // Define the steps based on shipping method
+  // Define the steps based on shipping method with estimated times
   const steps =
     shippingMethod === "pickup"
       ? [
-          { status: "checkout-complete", label: t.checkoutComplete, icon: <ShoppingBag className="h-6 w-6" /> },
-          { status: "processing", label: t.processing, icon: <Package className="h-6 w-6" /> },
-          { status: "ready-for-pickup", label: t.readyForPickup, icon: <Home className="h-6 w-6" /> },
-          { status: "delivered", label: t.delivered, icon: <CheckCircle className="h-6 w-6" /> },
+          {
+            status: "checkout-complete",
+            label: t.checkoutComplete,
+            icon: <ShoppingBag className="h-6 w-6" />,
+            estimatedTime: `1-2 ${t.hours}`,
+          },
+          {
+            status: "processing",
+            label: t.processing,
+            icon: <Package className="h-6 w-6" />,
+            estimatedTime: `1-2 ${t.days}`,
+          },
+          {
+            status: "ready-for-pickup",
+            label: t.readyForPickup,
+            icon: <Home className="h-6 w-6" />,
+            estimatedTime: `1 ${t.days}`,
+          },
+          {
+            status: "delivered",
+            label: t.delivered,
+            icon: <CheckCircle className="h-6 w-6" />,
+            estimatedTime: null,
+          },
         ]
       : [
-          { status: "checkout-complete", label: t.checkoutComplete, icon: <ShoppingBag className="h-6 w-6" /> },
-          { status: "processing", label: t.processing, icon: <Package className="h-6 w-6" /> },
-          { status: "ready-for-shipping", label: t.readyForShipping, icon: <Package className="h-6 w-6" /> },
-          { status: "shipped", label: t.shipped, icon: <Truck className="h-6 w-6" /> },
-          { status: "delivered", label: t.delivered, icon: <CheckCircle className="h-6 w-6" /> },
+          {
+            status: "checkout-complete",
+            label: t.checkoutComplete,
+            icon: <ShoppingBag className="h-6 w-6" />,
+            estimatedTime: `1-2 ${t.hours}`,
+          },
+          {
+            status: "processing",
+            label: t.processing,
+            icon: <Package className="h-6 w-6" />,
+            estimatedTime: `1-2 ${t.days}`,
+          },
+          {
+            status: "ready-for-shipping",
+            label: t.readyForShipping,
+            icon: <Package className="h-6 w-6" />,
+            estimatedTime: `1 ${t.days}`,
+          },
+          {
+            status: "shipped",
+            label: t.shipped,
+            icon: <Truck className="h-6 w-6" />,
+            estimatedTime: `1-3 ${t.days}`,
+          },
+          {
+            status: "delivered",
+            label: t.delivered,
+            icon: <CheckCircle className="h-6 w-6" />,
+            estimatedTime: null,
+          },
         ]
 
   // Find the current step index
   const currentStepIndex = steps.findIndex((step) => step.status === currentStatus)
 
+  // Handle cancelled orders
+  if (currentStatus === "cancelled") {
+    return (
+      <div className={`w-full py-4 ${className}`}>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 text-center">
+          <div className="text-red-600 font-medium flex items-center justify-center">
+            <Clock className="mr-2" size={20} />
+            {language === "en" ? "Order Cancelled" : "Pedido Cancelado"}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="w-full py-4">
+    <div className={`w-full py-4 ${className}`}>
       <div className="relative">
         {/* Progress line */}
         <div className="absolute top-1/2 left-0 w-full h-1 bg-muted transform -translate-y-1/2"></div>
@@ -92,6 +160,12 @@ export function OrderTrackingBar({ currentStatus, shippingMethod }: OrderTrackin
                 >
                   {step.label}
                 </span>
+                {step.estimatedTime && isCurrent && (
+                  <span className="mt-1 text-xs text-blue-600 flex items-center">
+                    <Clock className="mr-1" size={10} />
+                    {t.estimatedTime} {step.estimatedTime}
+                  </span>
+                )}
               </div>
             )
           })}

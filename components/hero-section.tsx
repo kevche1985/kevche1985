@@ -151,27 +151,6 @@ export default function HeroSection() {
                 <Link href="/products">{t.cta2}</Link>
               </Button>
             </div>
-            <div className="flex items-center gap-4 pt-4">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="inline-block h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
-                  >
-                    <Image
-                      src={`/placeholder-32px.png?height=32&width=32`}
-                      alt="User"
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">500+</span> {t.customers}
-              </div>
-            </div>
           </div>
           <div className="relative flex items-center justify-center">
             <div

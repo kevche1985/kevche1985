@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/context/language-context"
 import { CartProvider } from "@/context/cart-context"
 import { OrderProvider } from "@/context/order-context"
 import { AuthProvider } from "@/context/auth-context"
+import { ProductProvider } from "@/context/product-context"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -30,10 +31,12 @@ export default function RootLayout({
           <AuthProvider>
             <CartProvider>
               <OrderProvider>
-                <Navbar />
-                <main className="flex-1">{children}</main>
-                <Footer />
-                <Toaster />
+                <ProductProvider>
+                  <Navbar />
+                  <main className="flex-1">{children}</main>
+                  <Footer />
+                  <Toaster />
+                </ProductProvider>
               </OrderProvider>
             </CartProvider>
           </AuthProvider>
@@ -42,6 +45,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-
-import './globals.css'

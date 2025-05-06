@@ -5,19 +5,22 @@ import { LanguageContext } from "@/context/language-context"
 import { ProductCustomizer } from "@/components/product-customizer"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Star, ChevronLeft, Heart, ShoppingCart, Check } from "lucide-react"
+import { Star, ChevronLeft, Heart, ShoppingCart, Check, MapPin, Truck, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { useCart } from "@/context/cart-context"
+import { useProducts } from "@/context/product-context"
+import Image from "next/image"
 
 export default function ProductDetailPage({
   params,
 }: {
   params: { category: string; product: string }
 }) {
-  const { language } = useContext(LanguageContext) || { language: "es" }
+  const { language } = useContext(LanguageContext) || { language: "es", t: {} }
   const { toast } = useToast()
   const { addItem } = useCart()
+  const { getProductById } = useProducts()
   const [customization, setCustomization] = useState({
     text: "",
     color: "#000000",
@@ -25,28 +28,24 @@ export default function ProductDetailPage({
   const [isFavorite, setIsFavorite] = useState(false)
   const [isAddingToCart, setIsAddingToCart] = useState(false)
 
-  // In a real app, you would fetch this data from an API based on the params
-  const product = {
+  // Get the product from the context
+  const productData = getProductById(params.product)
+
+  // Use the product data or fallback to a default product
+  const product = productData || {
     id: params.product,
-    name: language === "en" ? "Custom T-Shirt" : "Camiseta Personalizada",
+    name: language === "en" ? "Product Not Found" : "Producto No Encontrado",
     description:
       language === "en"
-        ? "High-quality cotton t-shirt with your custom design. Perfect for events, promotions, or personal use."
-        : "Camiseta de algodón de alta calidad con tu diseño personalizado. Perfecta para eventos, promociones o uso personal.",
-    price: 24.99,
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/printondemand-tshirt-hero.jpg-REJerWrLTRG2rHVGLd8TRvYF5UEPbA.jpeg",
-    category: language === "en" ? "Apparel" : "Ropa",
-    rating: 4.8,
-    reviews: 124,
-    details:
-      language === "en"
-        ? "100% cotton, pre-shrunk, available in multiple colors and sizes. Machine washable."
-        : "100% algodón, pre-encogido, disponible en múltiples colores y tallas. Lavable a máquina.",
-    shipping:
-      language === "en"
-        ? "Free shipping on orders over $50. Standard delivery in 3-5 business days."
-        : "Envío gratis en pedidos superiores a $50. Entrega estándar en 3-5 días hábiles.",
+        ? "The requested product could not be found."
+        : "El producto solicitado no pudo ser encontrado.",
+    price: 0,
+    image: "/placeholder.svg?height=400&width=400",
+    category: language === "en" ? "Unknown" : "Desconocido",
+    rating: 0,
+    reviews: 0,
+    details: language === "en" ? "No details available." : "No hay detalles disponibles.",
+    shipping: language === "en" ? "No shipping information available." : "No hay información de envío disponible.",
   }
 
   const content = {
@@ -143,7 +142,7 @@ export default function ProductDetailPage({
     <div className="container py-12">
       <div className="mb-6">
         <Link
-          href={`/products/${params.category}`}
+          href={`/products`}
           className="flex items-center text-muted-foreground hover:text-primary transition-colors"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
@@ -153,6 +152,7 @@ export default function ProductDetailPage({
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+        <Image src={product.image || "/placeholder.svg"} alt={product.name} width={300} height={300} />
         <div className="flex items-center gap-2 mb-4">
           <div className="flex">
             {[...Array(5)].map((_, i) => (
@@ -169,7 +169,7 @@ export default function ProductDetailPage({
       </div>
 
       <Tabs defaultValue="customize" className="w-full mb-8">
-        <TabsList className="grid grid-cols-3 w-full max-w-md mb-8">
+        <TabsList className="grid w-full grid-cols-3 max-w-md mb-8">
           <TabsTrigger value="customize">{t.customize}</TabsTrigger>
           <TabsTrigger value="details">{t.details}</TabsTrigger>
           <TabsTrigger value="shipping">{t.shipping}</TabsTrigger>
@@ -216,13 +216,103 @@ export default function ProductDetailPage({
 
         <TabsContent value="details">
           <div className="prose dark:prose-invert max-w-none">
-            <p>{product.details}</p>
+            <h3>{language === "en" ? "Product Description" : "Descripción del Producto"}</h3>
+            <p className="text-lg font-medium mb-4">{product.description}</p>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <div>
+                <h4>{language === "en" ? "Features" : "Características"}</h4>
+                <ul className="mt-2">
+                  <li>{language === "en" ? "High-quality materials" : "Materiales de alta calidad"}</li>
+                  <li>{language === "en" ? "Durable construction" : "Construcción duradera"}</li>
+                  <li>{language === "en" ? "Custom printing options" : "Opciones de impresión personalizadas"}</li>
+                  <li>{language === "en" ? "Multiple color options" : "Múltiples opciones de color"}</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4>{language === "en" ? "Specifications" : "Especificaciones"}</h4>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="font-medium">{language === "en" ? "Material" : "Material"}</span>
+                    <span>{language === "en" ? "Premium quality" : "Calidad premium"}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="font-medium">{language === "en" ? "Dimensions" : "Dimensiones"}</span>
+                    <span>{language === "en" ? "Standard size" : "Tamaño estándar"}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="font-medium">{language === "en" ? "Weight" : "Peso"}</span>
+                    <span>{language === "en" ? "Lightweight" : "Ligero"}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-1">
+                    <span className="font-medium">{language === "en" ? "Care" : "Cuidado"}</span>
+                    <span>{language === "en" ? "Easy to clean" : "Fácil de limpiar"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h4>{language === "en" ? "Additional Information" : "Información Adicional"}</h4>
+              <p>{product.details}</p>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="shipping">
           <div className="prose dark:prose-invert max-w-none">
-            <p>{product.shipping}</p>
+            <h3>{language === "en" ? "Shipping Options" : "Opciones de Envío"}</h3>
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center p-3 border rounded">
+                <MapPin className="mr-3 h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="font-medium">{language === "en" ? "Pickup" : "Recoger en Tienda"}</div>
+                  <div className="text-sm text-muted-foreground">$0.00</div>
+                </div>
+              </div>
+
+              <div className="flex items-center p-3 border rounded">
+                <Truck className="mr-3 h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="font-medium">{language === "en" ? "Urgent Delivery" : "Entrega Urgente"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    <Clock className="inline mr-1" size={14} />
+                    {language === "en" ? "2-5 hours" : "2-5 horas"} - $10.00
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center p-3 border rounded">
+                <Truck className="mr-3 h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="font-medium">{language === "en" ? "Priority Delivery" : "Entrega Prioritaria"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    <Clock className="inline mr-1" size={14} />
+                    {language === "en" ? "5-7 hours" : "5-7 horas"} - $5.00
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center p-3 border rounded">
+                <Truck className="mr-3 h-5 w-5 text-muted-foreground" />
+                <div>
+                  <div className="font-medium">{language === "en" ? "Regular Delivery" : "Entrega Regular"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    <Clock className="inline mr-1" size={14} />
+                    {language === "en" ? "48 hours" : "48 horas"} - $3.00
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>
+                {language === "en"
+                  ? "Note: Delivery is only available within the San Salvador metropolitan area."
+                  : "Nota: La entrega solo está disponible dentro del área metropolitana de San Salvador."}
+              </p>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

@@ -1,12 +1,14 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { useContext } from "react"
+import { useContext, useState } from "react"
 import { LanguageContext } from "@/context/language-context"
 import Link from "next/link"
+import { QuoteRequestModal } from "@/components/quote-request-modal"
 
 export default function CTASection() {
   const { language } = useContext(LanguageContext) || { language: "es" }
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false)
 
   const content = {
     en: {
@@ -42,7 +44,7 @@ export default function CTASection() {
                   <Button size="lg" className="h-12" asChild>
                     <Link href="/get-started">{t.cta1}</Link>
                   </Button>
-                  <Button size="lg" variant="outline" className="h-12">
+                  <Button size="lg" variant="outline" className="h-12" onClick={() => setIsQuoteModalOpen(true)}>
                     {t.cta2}
                   </Button>
                 </div>
@@ -51,6 +53,11 @@ export default function CTASection() {
           </div>
         </div>
       </div>
+      <QuoteRequestModal
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        serviceType="General Inquiry"
+      />
     </section>
   )
 }

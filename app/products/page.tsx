@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { ProductCard } from "@/components/product-card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 // Add imports for useSearchParams and useRouter at the top of the file
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useProducts } from "@/context/product-context"
 
 // Update the products array to include products in all categories
 const products = [
@@ -132,6 +133,7 @@ export default function ProductsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const categoryParam = searchParams.get("category")
+  const { products } = useProducts()
 
   // Filter products based on the category parameter
   const filteredProducts = categoryParam
@@ -145,15 +147,32 @@ export default function ProductsPage() {
       })
     : products
 
+  // Sort products based on the selected sort option
+  const sortedProducts = useMemo(() => {
+    const sorted = [...filteredProducts]
+
+    switch (sort) {
+      case "price-asc":
+        return sorted.sort((a, b) => a.price - b.price)
+      case "price-desc":
+        return sorted.sort((a, b) => b.price - a.price)
+      case "newest":
+        return sorted.sort((a, b) => (a.isNew ? -1 : 1) - (b.isNew ? -1 : 1))
+      case "featured":
+      default:
+        return sorted.sort((a, b) => (a.isBestseller ? -1 : 1) - (b.isBestseller ? -1 : 1))
+    }
+  }, [filteredProducts, sort])
+
   // Function to handle category filter changes
   const handleCategoryChange = (category: string) => {
     router.push(`/products?category=${category.toLowerCase()}`)
   }
 
   return (
-    <div className="container py-8">
+    <div className="container pt-24 pb-8">
       {/* Breadcrumb */}
-      <div className="text-sm breadcrumbs mb-8">
+      <div className="text-sm breadcrumbs mb-10">
         <ul className="flex items-center space-x-2 text-muted-foreground">
           <li>
             <Link href="/" className="hover:text-primary">
@@ -252,8 +271,8 @@ export default function ProductsPage() {
           view === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "space-y-4"
         }
       >
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => <ProductCard key={product.id} {...product} />)
+        {sortedProducts.length > 0 ? (
+          sortedProducts.map((product) => <ProductCard key={product.id} {...product} />)
         ) : (
           <div className="col-span-full text-center py-12">
             <h3 className="text-xl font-medium mb-2">No products found</h3>

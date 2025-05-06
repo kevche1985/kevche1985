@@ -105,22 +105,7 @@ export default function Footer() {
             <ul className="space-y-2">
               {t.company.items.map((item) => (
                 <li key={item}>
-                  <Link
-                    href={
-                      item === "About Us" || item === "Nosotros"
-                        ? "/about"
-                        : item === "Blog"
-                          ? "/blog"
-                          : item === "Press" || item === "Prensa"
-                            ? "/press"
-                            : item === "Careers" || item === "Carreras"
-                              ? "/careers"
-                              : item === "Partners" || item === "Socios"
-                                ? "/partners"
-                                : "#"
-                    }
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
                     {item}
                   </Link>
                 </li>

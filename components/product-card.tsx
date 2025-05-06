@@ -186,12 +186,19 @@ export function ProductCard({
     >
       <div className="relative aspect-square overflow-hidden">
         <Image
-          src={image || "/placeholder.svg"}
+          src={image && image.startsWith("blob:") ? "/placeholder.svg" : image || "/placeholder.svg"}
           alt={name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           priority
-          className="object-cover transition-transform group-hover:scale-105 z-10"
+          className="object-cover transition-transform group-hover:scale-105 z-0"
+          onError={(e) => {
+            // If image fails to load, replace with placeholder
+            const target = e.target as HTMLImageElement
+            target.onerror = null // Prevent infinite error loop
+            target.src = "/placeholder.svg"
+          }}
+          unoptimized={true}
         />
         {isNew && (
           <Badge className="absolute left-2 top-2 bg-primary text-primary-foreground">
@@ -205,7 +212,7 @@ export function ProductCard({
         )}
 
         {/* Quick action buttons */}
-        <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 transform translate-x-full transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0">
+        <div className="absolute right-2 top-2 flex flex-col gap-2 z-1">
           <Button
             size="icon"
             variant="secondary"
@@ -266,11 +273,12 @@ export function ProductCard({
               <X className="h-4 w-4" />
             </Button>
             <Image
-              src={image || "/placeholder.svg"}
+              src={image && image.startsWith("blob:") ? "/placeholder.svg" : image || "/placeholder.svg"}
               alt={name}
               width={800}
               height={800}
               className="object-contain max-h-[80vh]"
+              unoptimized={true}
             />
             <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-4 text-white">
               <h3 className="font-bold text-xl">{name}</h3>

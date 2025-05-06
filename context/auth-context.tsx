@@ -2,6 +2,8 @@
 
 import { createContext, useState, useContext, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { toast } from "@/components/ui/use-toast"
 
 export type UserRole = "user" | "operator" | "admin"
 
@@ -10,6 +12,10 @@ export interface User {
   name: string
   email: string
   role: UserRole
+  is_active: boolean
+  created_at: string
+  updated_at?: string
+  last_login_at?: string
   avatar?: string
 }
 
@@ -17,125 +23,286 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   forgotPassword: (email: string) => Promise<void>
+  hasPermission: (permission: string) => boolean
+  hasRole: (role: UserRole | UserRole[]) => boolean
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock users for demonstration
-const mockUsers: User[] = [
-  {
-    id: "user-1",
-    name: "Regular User",
-    email: "user@test.com",
-    role: "user",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-  {
-    id: "operator-1",
-    name: "Operator User",
-    email: "operator@test.com",
-    role: "operator",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-  {
-    id: "admin-1",
-    name: "Admin User",
-    email: "admin@test.com",
-    role: "admin",
-    avatar: "/placeholder.svg?height=40&width=40",
-  },
-]
+// Helper function to check if a user has a specific permission
+const hasPermission = (user: User | null, permission: string): boolean => {
+  if (!user) return false
+
+  // Admin has all permissions
+  if (user.role === "admin") return true
+
+  // Define permissions for each role
+  const rolePermissions: Record<UserRole, string[]> = {
+    admin: ["*"], // Admin has all permissions
+    operator: [
+      "manage:products",
+      "manage:prices",
+      "manage:shipping",
+      "manage:users",
+      "process:orders",
+      "manage:quotes",
+      "view:orders",
+      "view:payments",
+      "save:designs",
+    ],
+    user: ["view:orders", "view:payments", "save:designs"],
+  }
+
+  return rolePermissions[user.role].includes(permission) || rolePermissions[user.role].includes("*")
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const supabase = createClientComponentClient()
+
+  // Fetch user data from Supabase with caching
+  const fetchUserData = async (userId: string, userEmail: string) => {
+    try {
+      // Get user data from the users table
+      const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
+
+      if (userError) {
+        console.error("Error fetching user data:", userError)
+
+        // Return basic user info as fallback
+        return {
+          id: userId,
+          email: userEmail,
+          name: userEmail?.split("@")[0] || "User",
+          role: "user" as const,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        }
+      }
+
+      return userData
+    } catch (error) {
+      console.error("Error in fetchUserData:", error)
+      return null
+    }
+  }
 
   // Check if user is already logged in
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    let isMounted = true
+
+    const checkSession = async () => {
+      try {
+        // Get session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!session) {
+          if (isMounted) {
+            setUser(null)
+            setIsLoading(false)
+          }
+          return
+        }
+
+        // Get user data
+        const userData = await fetchUserData(session.user.id, session.user.email || "")
+
+        if (isMounted) {
+          if (userData) {
+            setUser(userData as User)
+          } else {
+            // If API fails, use basic user info from session
+            setUser({
+              id: session.user.id,
+              email: session.user.email || "",
+              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+              role: "user",
+              is_active: true,
+              created_at: session.user.created_at || new Date().toISOString(),
+              updated_at: session.user.updated_at || new Date().toISOString(),
+            })
+          }
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error("Error checking session:", error)
+        if (isMounted) {
+          setUser(null)
+          setIsLoading(false)
+        }
+      }
     }
-    setIsLoading(false)
-  }, [])
+
+    checkSession()
+
+    // Set up auth state change listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        const userData = await fetchUserData(session.user.id, session.user.email || "")
+        if (isMounted) {
+          if (userData) {
+            setUser(userData as User)
+          } else {
+            // If API fails, use basic user info from session
+            setUser({
+              id: session.user.id,
+              email: session.user.email || "",
+              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+              role: "user",
+              is_active: true,
+              created_at: session.user.created_at || new Date().toISOString(),
+              updated_at: session.user.updated_at || new Date().toISOString(),
+            })
+          }
+        }
+      } else if (event === "SIGNED_OUT") {
+        if (isMounted) {
+          setUser(null)
+        }
+      }
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [supabase])
+
+  const refreshUser = async () => {
+    if (!user) return
+
+    const userData = await fetchUserData(user.id, user.email)
+    if (userData) {
+      setUser(userData as User)
+    }
+  }
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-      // Find user with matching email
-      const foundUser = mockUsers.find((u) => u.email === email)
+      if (error) throw error
 
-      if (!foundUser) {
-        throw new Error("Invalid email or password")
+      // Update last login timestamp
+      if (data.user) {
+        await supabase.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", data.user.id)
       }
 
-      // In a real app, you would verify the password here
-      // For demo purposes, we'll just check if password is "password"
-      if (password !== "password") {
-        throw new Error("Invalid email or password")
-      }
+      // Get user data
+      const userData = await fetchUserData(data.user.id, data.user.email || "")
 
-      setUser(foundUser)
-      localStorage.setItem("user", JSON.stringify(foundUser))
-
-      // Redirect based on role
-      if (foundUser.role === "admin") {
-        router.push("/admin/dashboard")
-      } else if (foundUser.role === "operator") {
-        router.push("/operator/dashboard")
+      if (userData) {
+        // Redirect based on role
+        if (userData.role === "admin") {
+          router.push("/admin/dashboard")
+        } else if (userData.role === "operator") {
+          router.push("/operator/dashboard")
+        } else {
+          router.push("/my-print/orders")
+        }
       } else {
-        router.push("/my-print/orders")
+        // Default redirect if role can't be determined
+        router.push("/")
       }
-    } catch (error) {
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message || "An error occurred during login",
+        variant: "destructive",
+      })
       console.error("Login error:", error)
-      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("user")
-    router.push("/")
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut()
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
   }
 
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // First, check if user already exists
+      const { data: existingUsers } = await supabase.from("users").select("*").eq("email", email).limit(1)
 
-      // Check if user already exists
-      if (mockUsers.some((u) => u.email === email)) {
-        throw new Error("User already exists")
+      if (existingUsers && existingUsers.length > 0) {
+        throw new Error("A user with this email already exists")
       }
 
-      // Create new user
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
+      // Sign up the user with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email,
-        role: "user", // New users are always regular users
-        avatar: "/placeholder.svg?height=40&width=40",
+        password,
+        options: {
+          data: {
+            name,
+          },
+          emailRedirectTo: `${window.location.origin}/verify-email`,
+        },
+      })
+
+      if (error) throw error
+
+      // Create user in custom users table
+      if (data.user) {
+        const now = new Date().toISOString()
+        const { error: insertError } = await supabase.from("users").insert({
+          id: data.user.id,
+          email,
+          name,
+          role: "user", // Always set role to "user" for self-registration
+          is_active: true,
+          created_at: now,
+          updated_at: now,
+        })
+
+        if (insertError) {
+          console.error("Error creating user entry:", insertError)
+          // Try to clean up auth user if db insert fails
+          try {
+            // Note: We can't use admin.deleteUser here as we don't have admin rights in the client
+            // Just log the error for now
+            console.error("Failed to create user record in database. Auth user may be orphaned:", data.user.id)
+          } catch (deleteError) {
+            console.error("Error cleaning up auth user:", deleteError)
+          }
+          throw insertError
+        }
       }
 
-      // In a real app, you would save the user to your database here
-      mockUsers.push(newUser)
+      toast({
+        title: "Registration successful",
+        description: "Please check your email to verify your account before logging in.",
+      })
 
-      setUser(newUser)
-      localStorage.setItem("user", JSON.stringify(newUser))
-      router.push("/my-print/orders")
-    } catch (error) {
+      router.push("/login")
+    } catch (error: any) {
+      toast({
+        title: "Registration failed",
+        description: error.message || "An error occurred during registration",
+        variant: "destructive",
+      })
       console.error("Registration error:", error)
-      throw error
     } finally {
       setIsLoading(false)
     }
@@ -144,27 +311,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forgotPassword = async (email: string) => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
 
-      // Check if user exists
-      const foundUser = mockUsers.find((u) => u.email === email)
-      if (!foundUser) {
-        throw new Error("User not found")
-      }
+      if (error) throw error
 
-      // In a real app, you would send a password reset email here
-      console.log(`Password reset email sent to ${email}`)
-    } catch (error) {
+      toast({
+        title: "Password reset email sent",
+        description: "Check your email for a link to reset your password",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Password reset failed",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      })
       console.error("Forgot password error:", error)
-      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
+  const checkPermission = (permission: string) => {
+    return hasPermission(user, permission)
+  }
+
+  const checkRole = (role: UserRole | UserRole[]) => {
+    if (!user) return false
+
+    if (Array.isArray(role)) {
+      return role.includes(user.role)
+    }
+
+    return user.role === role
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, register, forgotPassword }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+        register,
+        forgotPassword,
+        hasPermission: checkPermission,
+        hasRole: checkRole,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
