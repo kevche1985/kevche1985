@@ -854,24 +854,69 @@ const es = {
   },
 }
 
+export type Language = "en" | "es"
+
+export interface Translation {
+  [key: string]:
+    | string
+    | Translation
+    | {
+        [key: string]: string | Translation
+      }
+}
+
 interface LanguageContextType {
-  language: "en" | "es"
-  setLanguage: (language: "en" | "es") => void
-  t: typeof en
+  language: Language
+  setLanguage: (language: Language) => void
+  t: {
+    [key: string]:
+      | string
+      | {
+          [key: string]: string
+        }
+  }
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<"en" | "es">("en")
-  const t = language === "en" ? en : es
+  const [language, setLanguage] = useState<Language>("en")
+
+  const translations = {
+    en,
+    es,
+  }
+
+  const t = translations[language] || en
+
+  const getTranslation = (key: string): string => {
+    const keys = key.split(".")
+    let current: any = t
+
+    for (const k of keys) {
+      if (current && typeof current === "object" && k in current) {
+        current = current[k]
+      } else {
+        return key // Fallback to the key if translation is missing
+      }
+    }
+
+    return typeof current === "string" ? current : key
+  }
 
   return (
     <LanguageContext.Provider
       value={{
         language,
         setLanguage,
-        t,
+        t: new Proxy(
+          {},
+          {
+            get: (_target, property: string) => {
+              return getTranslation(property)
+            },
+          },
+        ),
       }}
     >
       {children}
@@ -881,7 +926,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage() {
   const context = useContext(LanguageContext)
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useLanguage must be used within a LanguageProvider")
   }
   return context

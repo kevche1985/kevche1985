@@ -120,7 +120,7 @@ export default function PayPalButton({
                 return await actions.order.create(order)
               } catch (err: any) {
                 console.error("PayPal create order error:", err)
-                setError(err.message || t.checkout.paymentError)
+                setError(err.message || t.checkout?.paymentError || "Payment error occurred")
                 if (onError) onError(err)
                 throw err
               }
@@ -138,7 +138,7 @@ export default function PayPalButton({
                 onSuccess(details)
               } catch (err: any) {
                 console.error("PayPal capture error:", err)
-                setError(err.message || t.checkout.paymentProcessingError)
+                setError(err.message || t.checkout?.paymentProcessingError || "Payment processing error occurred")
                 if (onError) onError(err)
               }
             }}
@@ -148,7 +148,7 @@ export default function PayPalButton({
             }}
             onError={(err) => {
               console.error("PayPal error:", err)
-              setError(err.message || t.checkout.paymentError)
+              setError(err.message || t.checkout?.paymentError || "Payment error occurred")
               if (onError) onError(err)
             }}
           />

@@ -1,149 +1,156 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useState, useContext, type ReactNode } from "react"
 
-// Define the payment method type
-export type PaymentMethod = {
+export interface PaymentMethod {
   id: string
   name: string
-  enabled: boolean
+  processor: "wompi" | "paypal" | "cash" | "other"
   icon?: string
+  description?: string
+  enabled: boolean
   processingFee?: string
+  apiConfig?: Record<string, string>
 }
 
-export type ApiConfig = {
-  apiKey?: string
-  secretKey?: string
-  clientId?: string
-  merchantId?: string
+export interface ApiConfig {
   endpoint?: string
+  clientId?: string
+  secretKey?: string
+  webhookSecret?: string
   sandbox?: boolean
+  redirectUrl?: string
+  webhookUrl?: string
+  merchantId?: string
 }
 
-// Define the context type
-type PaymentMethodContextType = {
+interface PaymentMethodsContextType {
   paymentMethods: PaymentMethod[]
-  togglePaymentMethod: (id: string) => void
   getEnabledPaymentMethods: () => PaymentMethod[]
-  addPaymentMethod: (method: Omit<PaymentMethod, "id">) => void
-  updatePaymentMethod: (id: string, method: PaymentMethod) => void
-  deletePaymentMethod: (id: string) => void
-  testApiConnection: (apiConfig: ApiConfig) => Promise<{ success: boolean; message: string }>
+  togglePaymentMethod: (id: string, enabled: boolean) => void
+  updatePaymentMethod: (id: string, data: Partial<PaymentMethod>) => void
+  getApiConfig: (processor: string) => Record<string, string> | undefined
+  updateApiConfig: (processor: string, config: Record<string, string>) => void
+  testApiConnection: (config: ApiConfig) => Promise<{ success: boolean; message: string; details?: string }>
 }
 
-// Create the context
-const PaymentMethodContext = createContext<PaymentMethodContextType | undefined>(undefined)
-
-// Default payment methods
 const defaultPaymentMethods: PaymentMethod[] = [
-  {
-    id: "cash",
-    name: "Cash on Delivery",
-    enabled: true,
-    icon: "dollar-sign",
-  },
   {
     id: "credit-card",
     name: "Credit Card",
-    enabled: true,
+    processor: "wompi",
     icon: "credit-card",
-    processingFee: "3% processing fee",
+    description: "Pay with your credit or debit card",
+    enabled: true,
+    processingFee: "2.9% + $0.30",
   },
   {
     id: "paypal",
     name: "PayPal",
-    enabled: true,
+    processor: "paypal",
     icon: "credit-card",
-    processingFee: "2.9% + $0.30 processing fee",
+    description: "Pay with PayPal",
+    enabled: true,
+    processingFee: "2.9% + $0.30",
+  },
+  {
+    id: "cash",
+    name: "Cash on Delivery",
+    processor: "cash",
+    icon: "dollar-sign",
+    description: "Pay with cash when your order is delivered",
+    enabled: true,
+    processingFee: "No fee",
   },
 ]
 
-// Provider component
-export function PaymentMethodProvider({ children }: { children: React.ReactNode }) {
-  // State for payment methods
+const PaymentMethodsContext = createContext<PaymentMethodsContextType | undefined>(undefined)
+
+export function PaymentMethodsProvider({ children }: { children: ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods)
+  const [apiConfigs, setApiConfigs] = useState<Record<string, ApiConfig>>({
+    wompi: {
+      clientId: process.env.NEXT_PUBLIC_WOMPI_CLIENT_ID || "",
+      clientSecret: "",
+      endpoint: process.env.NEXT_PUBLIC_WOMPI_ENDPOINT || "https://api.wompi.sv/v1",
+      redirectUrl: "/payment-success",
+    },
+    paypal: {
+      clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
+      clientSecret: "",
+      sandbox: true,
+    },
+  })
 
-  // Load payment methods from localStorage on mount
-  useEffect(() => {
-    const savedPaymentMethods = localStorage.getItem("paymentMethods")
-    if (savedPaymentMethods) {
-      try {
-        setPaymentMethods(JSON.parse(savedPaymentMethods))
-      } catch (e) {
-        console.error("Failed to parse payment methods from localStorage", e)
-      }
-    }
-  }, [])
-
-  // Save payment methods to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem("paymentMethods", JSON.stringify(paymentMethods))
-  }, [paymentMethods])
-
-  // Toggle a payment method's enabled status
-  const togglePaymentMethod = (id: string) => {
-    setPaymentMethods((prevMethods) =>
-      prevMethods.map((method) => (method.id === id ? { ...method, enabled: !method.enabled } : method)),
-    )
-  }
-
-  // Get only enabled payment methods
   const getEnabledPaymentMethods = () => {
     return paymentMethods.filter((method) => method.enabled)
   }
 
-  const addPaymentMethod = (method: Omit<PaymentMethod, "id">) => {
-    const newMethod: PaymentMethod = {
-      id: `pm-${Date.now()}`,
-      ...method,
-    }
-    setPaymentMethods((prev) => [...prev, newMethod])
+  const togglePaymentMethod = (id: string) => {
+    setPaymentMethods((prev) =>
+      prev.map((method) => (method.id === id ? { ...method, enabled: !method.enabled } : method)),
+    )
   }
 
-  const updatePaymentMethod = (id: string, method: PaymentMethod) => {
-    setPaymentMethods((prev) => prev.map((pm) => (pm.id === id ? method : pm)))
+  const updatePaymentMethod = (id: string, data: Partial<PaymentMethod>) => {
+    setPaymentMethods((prev) => prev.map((method) => (method.id === id ? { ...method, ...data } : method)))
   }
 
-  const deletePaymentMethod = (id: string) => {
-    setPaymentMethods((prev) => prev.filter((pm) => pm.id !== id))
+  const getApiConfig = (processor: string) => {
+    return apiConfigs[processor]
   }
 
-  const testApiConnection = async (apiConfig: ApiConfig): Promise<{ success: boolean; message: string }> => {
-    // Simulate API connection test
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  const updateApiConfig = (processor: string, config: Record<string, string>) => {
+    setApiConfigs((prev) => ({
+      ...prev,
+      [processor]: {
+        ...prev[processor],
+        ...config,
+      },
+    }))
+  }
 
-    if (apiConfig.apiKey === "valid_api_key") {
-      return { success: true, message: "Connection successful!" }
-    } else {
-      return { success: false, message: "Invalid API key" }
+  const testApiConnection = async (config: ApiConfig) => {
+    try {
+      const response = await fetch("/api/payments/wompi/test-connection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+      })
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("Error testing API connection:", error)
+      return { success: false, message: "Connection failed" }
     }
   }
 
   return (
-    <PaymentMethodContext.Provider
+    <PaymentMethodsContext.Provider
       value={{
         paymentMethods,
-        togglePaymentMethod,
         getEnabledPaymentMethods,
-        addPaymentMethod,
+        togglePaymentMethod,
         updatePaymentMethod,
-        deletePaymentMethod,
+        getApiConfig,
+        updateApiConfig,
         testApiConnection,
       }}
     >
       {children}
-    </PaymentMethodContext.Provider>
+    </PaymentMethodsContext.Provider>
   )
 }
 
-// Custom hook to use the payment method context
 export function usePaymentMethods() {
-  const context = useContext(PaymentMethodContext)
+  const context = useContext(PaymentMethodsContext)
   if (context === undefined) {
-    throw new Error("usePaymentMethods must be used within a PaymentMethodProvider")
+    throw new Error("usePaymentMethods must be used within a PaymentMethodsProvider")
   }
   return context
 }
 
-export { PaymentMethodContext }
+export { PaymentMethodsContext }

@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { productOperations } from "@/lib/supabase-products"
+import { useToast } from "@/hooks/use-toast"
 
 // Define the Product type
 export interface Product {
@@ -13,29 +15,36 @@ export interface Product {
   isNew?: boolean
   isBestseller?: boolean
   isActive?: boolean
+  isFeatured?: boolean
   stock?: number
   sku?: string
+  supplierId?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 // Define the context type
 interface ProductContextType {
   products: Product[]
-  addProduct: (product: Product) => void
-  updateProduct: (product: Product) => void
-  deleteProduct: (id: string) => void
-  toggleProductStatus: (id: string) => void
+  addProduct: (product: Omit<Product, "id" | "createdAt" | "updatedAt">) => Promise<Product | null>
+  updateProduct: (product: Product) => Promise<Product | null>
+  deleteProduct: (id: string) => Promise<boolean>
+  toggleProductStatus: (id: string) => Promise<void>
   getProductsByCategory: (category: string) => Product[]
   getProductById: (id: string) => Product | undefined
   categories: string[]
   addCategory: (category: string) => void
   updateCategory: (oldName: string, newName: string) => void
   deleteCategory: (category: string) => void
+  loading: boolean
+  refreshProducts: () => Promise<void>
+  useSupabase: boolean
 }
 
 // Create the context with a default value
 const ProductContext = createContext<ProductContextType | undefined>(undefined)
 
-// Sample initial product data
+// Sample initial product data for fallback
 const initialProducts: Product[] = [
   {
     id: "bc1",
@@ -50,265 +59,265 @@ const initialProducts: Product[] = [
     sku: "BC-PREM-001",
     isBestseller: false,
   },
-  {
-    id: "bc2",
-    name: "Standard Business Cards",
-    description: "Professional business cards for everyday use",
-    price: 19.99,
-    image: "/professional-business-card.png",
-    category: "Business Cards",
-    isNew: false,
-    isActive: true,
-    stock: 750,
-    sku: "BC-STD-001",
-    isBestseller: false,
-  },
-  {
-    id: "bc3",
-    name: "Luxury Business Cards",
-    description: "Embossed business cards with gold foil accents",
-    price: 39.99,
-    image: "/elegant-gold-business-card.png",
-    category: "Business Cards",
-    isNew: false,
-    isActive: true,
-    stock: 250,
-    sku: "BC-LUX-001",
-    isBestseller: true,
-  },
-  {
-    id: "ts1",
-    name: "Custom Printed T-Shirt",
-    description: "100% cotton t-shirt with your custom design",
-    price: 24.99,
-    image: "/personalized-message-tee.png",
-    category: "T-Shirts",
-    isNew: true,
-    isActive: true,
-    stock: 120,
-    sku: "TS-CUST-001",
-    isBestseller: false,
-  },
-  {
-    id: "ts2",
-    name: "Premium Cotton T-Shirt",
-    description: "High-quality cotton t-shirt with durable print",
-    price: 29.99,
-    image: "/luxurious-cotton-tee.png",
-    category: "T-Shirts",
-    isNew: false,
-    isActive: true,
-    stock: 85,
-    sku: "TS-PREM-001",
-    isBestseller: true,
-  },
-  {
-    id: "ts3",
-    name: "Performance T-Shirt",
-    description: "Moisture-wicking fabric ideal for sports and activities",
-    price: 34.99,
-    image: "/athletic-woman-running.png",
-    category: "T-Shirts",
-    isNew: false,
-    isActive: true,
-    stock: 60,
-    sku: "TS-PERF-001",
-    isBestseller: false,
-  },
-  {
-    id: "cp1",
-    name: "Abstract Botanical Canvas",
-    description: "Modern abstract art with vibrant colors featuring stylized plant forms",
-    price: 49.99,
-    image: "/images/canvas/canvas1-abstract-plant.png",
-    category: "Canvas Prints",
-    isNew: true,
-    isActive: true,
-    stock: 25,
-    sku: "CP-ABS-001",
-    isBestseller: false,
-  },
-  {
-    id: "cp2",
-    name: "Stylized Portrait Canvas",
-    description: "Elegant stylized portrait of a woman with bold colors on contrasting background",
-    price: 59.99,
-    image: "/images/canvas/canvas2-stylized-portrait.png",
-    category: "Canvas Prints",
-    isNew: false,
-    isActive: true,
-    stock: 15,
-    sku: "CP-POR-001",
-    isBestseller: false,
-  },
-  {
-    id: "cp3",
-    name: "Gatsby Pop Art Canvas",
-    description: "Colorful pop art portrait with vibrant abstract background",
-    price: 69.99,
-    image: "/images/canvas/canvas3-gatsby-portrait.png",
-    category: "Canvas Prints",
-    isNew: false,
-    isActive: true,
-    stock: 20,
-    sku: "CP-POP-001",
-    isBestseller: true,
-  },
-  {
-    id: "cp4",
-    name: "Starry Night Multi-Panel Canvas",
-    description: "Five-panel reproduction of Van Gogh's Starry Night masterpiece",
-    price: 129.99,
-    image: "/images/canvas/canvas4-starry-night-panels.png",
-    category: "Canvas Prints",
-    isNew: true,
-    isActive: true,
-    stock: 10,
-    sku: "CP-STAR-001",
-    isBestseller: false,
-  },
-  {
-    id: "nb1",
-    name: "Daily Planner A6",
-    description: "A6 Daily Planner with 9 pages",
-    price: 9.99,
-    image: "/images/notebooks/Notebook1.jpg",
-    category: "Planners & Notebooks",
-    isNew: true,
-    isActive: true,
-    stock: 75,
-    sku: "NB-Daily-001",
-    isBestseller: false,
-  },
-  {
-    id: "nb2",
-    name: "Floral Design Notebook",
-    description: "Spiral notebook with floral design",
-    price: 12.99,
-    image: "/images/notebooks/Notebook2.jpeg",
-    category: "Planners & Notebooks",
-    isNew: false,
-    isActive: true,
-    stock: 50,
-    sku: "NB-Floral-002",
-    isBestseller: true,
-  },
-  {
-    id: "nb3",
-    name: "Minimalist Design Notebook",
-    description: "Spiral notebook with minimalist design",
-    price: 7.99,
-    image: "/images/notebooks/Notebook3.jpg",
-    category: "Planners & Notebooks",
-    isNew: false,
-    isActive: true,
-    stock: 40,
-    sku: "NB-Min-003",
-    isBestseller: false,
-  },
-  {
-    id: "nb4",
-    name: "Leather Bound Journal",
-    description: "Leather bound journal with clasp",
-    price: 24.99,
-    image: "/images/notebooks/Notebook4.jpg",
-    category: "Planners & Notebooks",
-    isNew: false,
-    isActive: true,
-    stock: 40,
-    sku: "NB-Leather-004",
-    isBestseller: false,
-  },
-  {
-    id: "nb5",
-    name: "Spiral Notebook Set",
-    description: "Set of spiral notebooks with various designs",
-    price: 19.99,
-    image: "/images/notebooks/Notebook5.jpg",
-    category: "Planners & Notebooks",
-    isNew: false,
-    isActive: true,
-    stock: 40,
-    sku: "NB-Spiral-005",
-    isBestseller: false,
-  },
+  // ... other initial products
 ]
 
 // Create a provider component
 export function ProductProvider({ children }: { children: ReactNode }) {
-  // Initialize state with data from localStorage or fall back to sample data
-  const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== "undefined") {
-      const savedProducts = localStorage.getItem("products")
-      return savedProducts ? JSON.parse(savedProducts) : initialProducts
-    }
-    return initialProducts
-  })
+  // Initialize state with empty arrays
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [useSupabase, setUseSupabase] = useState(true)
+  const { toast } = useToast()
 
-  const [categories, setCategories] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      const savedCategories = localStorage.getItem("categories")
-      return savedCategories ? JSON.parse(savedCategories) : []
-    }
-    return []
-  })
-
-  // Extract unique categories from products on mount
+  // Load products on mount
   useEffect(() => {
-    if (categories.length === 0) {
+    loadProducts()
+  }, [])
+
+  // Extract unique categories from products
+  useEffect(() => {
+    if (products.length > 0) {
       const uniqueCategories = [...new Set(products.map((product) => product.category))]
       setCategories(uniqueCategories)
     }
-  }, [products, categories.length])
-
-  // Save products to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("products", JSON.stringify(products))
-    }
   }, [products])
 
-  // Save categories to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("categories", JSON.stringify(categories))
+  // Load all products
+  const loadProducts = async () => {
+    try {
+      setLoading(true)
+
+      // Try to load from Supabase
+      if (useSupabase) {
+        try {
+          const productsData = await productOperations.getAllProducts()
+
+          if (productsData.length > 0) {
+            setProducts(productsData)
+            const uniqueCategories = [...new Set(productsData.map((product) => product.category))]
+            setCategories(uniqueCategories)
+            return
+          }
+        } catch (err) {
+          console.error("Supabase connection failed:", err)
+          setUseSupabase(false)
+          toast({
+            title: "Database Connection Error",
+            description: "Falling back to local storage. Changes won't be saved to the database.",
+            variant: "destructive",
+          })
+        }
+      }
+
+      // Fallback to localStorage
+      if (typeof window !== "undefined") {
+        const savedProducts = localStorage.getItem("products")
+        if (savedProducts) {
+          const parsedProducts = JSON.parse(savedProducts)
+          setProducts(parsedProducts)
+          const uniqueCategories = [...new Set(parsedProducts.map((product) => product.category))]
+          setCategories(uniqueCategories)
+        } else {
+          // Use initial data if nothing in localStorage
+          setProducts(initialProducts)
+          const uniqueCategories = [...new Set(initialProducts.map((product) => product.category))]
+          setCategories(uniqueCategories)
+        }
+      } else {
+        // Use initial data if not in browser
+        setProducts(initialProducts)
+        const uniqueCategories = [...new Set(initialProducts.map((product) => product.category))]
+        setCategories(uniqueCategories)
+      }
+    } catch (err) {
+      console.error("Error loading products:", err)
+      // Use initial data as last resort
+      setProducts(initialProducts)
+      const uniqueCategories = [...new Set(initialProducts.map((product) => product.category))]
+      setCategories(uniqueCategories)
+    } finally {
+      setLoading(false)
     }
-  }, [categories])
+  }
+
+  // Refresh products
+  const refreshProducts = async () => {
+    await loadProducts()
+  }
 
   // Add a new product
-  const addProduct = (product: Product) => {
-    // Generate a simple ID if not provided
-    const newProduct = {
-      ...product,
-      id: product.id || `prod-${Date.now()}`,
-      isActive: product.isActive !== undefined ? product.isActive : true,
-    }
-    setProducts((prevProducts) => [...prevProducts, newProduct])
+  const addProduct = async (product: Omit<Product, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      // Set a connection timeout
+      const connectionTimeout = 5000 // 5 seconds
 
-    // Add category if it's new
-    if (!categories.includes(product.category)) {
-      setCategories((prevCategories) => [...prevCategories, product.category])
+      if (useSupabase) {
+        try {
+          // Create an AbortController for the fetch operation
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), connectionTimeout)
+
+          // Optimize by only sending required fields to Supabase
+          const essentialProductData = {
+            name: product.name,
+            description: product.description,
+            price: product.price,
+            category: product.category,
+            image: product.image,
+            isActive: product.isActive,
+            supplierId: product.supplierId,
+            // Only include other fields if they have values
+            ...(product.stock !== undefined && { stock: product.stock }),
+            ...(product.sku && { sku: product.sku }),
+            ...(product.isNew !== undefined && { isNew: product.isNew }),
+            ...(product.isBestseller !== undefined && { isBestseller: product.isBestseller }),
+            ...(product.isFeatured !== undefined && { isFeatured: product.isFeatured }),
+          }
+
+          const newProduct = await productOperations.createProduct(essentialProductData)
+          clearTimeout(timeoutId)
+
+          if (newProduct) {
+            // Update state optimistically
+            setProducts((prevProducts) => [...prevProducts, newProduct])
+
+            // Update localStorage as backup (do this in background)
+            if (typeof window !== "undefined") {
+              setTimeout(() => {
+                localStorage.setItem("products", JSON.stringify([...products, newProduct]))
+              }, 0)
+            }
+            return newProduct
+          }
+        } catch (err) {
+          console.error("Supabase operation failed:", err)
+          // Continue to fallback
+        }
+      }
+
+      // Fallback to local storage only
+      const id = `prod-${Date.now()}`
+      const localProduct = {
+        ...product,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Update state optimistically
+      setProducts((prevProducts) => [...prevProducts, localProduct])
+
+      // Update localStorage in the background
+      if (typeof window !== "undefined") {
+        setTimeout(() => {
+          localStorage.setItem("products", JSON.stringify([...products, localProduct]))
+        }, 0)
+      }
+
+      return localProduct
+    } catch (err) {
+      console.error("Error adding product:", err)
+      toast({
+        title: "Error",
+        description: "Failed to add product.",
+        variant: "destructive",
+      })
+      return null
     }
   }
 
   // Update an existing product
-  const updateProduct = (product: Product) => {
-    setProducts((prevProducts) => prevProducts.map((p) => (p.id === product.id ? { ...p, ...product } : p)))
+  const updateProduct = async (product: Product) => {
+    try {
+      if (useSupabase) {
+        try {
+          const updatedProduct = await productOperations.updateProduct(product.id, product)
+          if (updatedProduct) {
+            setProducts((prevProducts) => prevProducts.map((p) => (p.id === product.id ? updatedProduct : p)))
+            // Update localStorage as backup
+            if (typeof window !== "undefined") {
+              localStorage.setItem(
+                "products",
+                JSON.stringify(products.map((p) => (p.id === product.id ? updatedProduct : p))),
+              )
+            }
+            return updatedProduct
+          }
+        } catch (err) {
+          console.error("Supabase operation failed:", err)
+          // Continue to fallback
+        }
+      }
 
-    // Add category if it's new
-    if (!categories.includes(product.category)) {
-      setCategories((prevCategories) => [...prevCategories, product.category])
+      // Fallback to local storage only
+      const localUpdatedProduct = { ...product, updatedAt: new Date().toISOString() }
+      setProducts((prevProducts) => prevProducts.map((p) => (p.id === product.id ? localUpdatedProduct : p)))
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "products",
+          JSON.stringify(products.map((p) => (p.id === product.id ? localUpdatedProduct : p))),
+        )
+      }
+
+      return localUpdatedProduct
+    } catch (err) {
+      console.error("Error updating product:", err)
+      toast({
+        title: "Error",
+        description: "Failed to update product.",
+        variant: "destructive",
+      })
+      return null
     }
   }
 
   // Delete a product
-  const deleteProduct = (id: string) => {
-    setProducts((prevProducts) => prevProducts.filter((p) => p.id !== id))
+  const deleteProduct = async (id: string) => {
+    try {
+      if (useSupabase) {
+        try {
+          const success = await productOperations.deleteProduct(id)
+          if (success) {
+            setProducts((prevProducts) => prevProducts.filter((p) => p.id !== id))
+            // Update localStorage as backup
+            if (typeof window !== "undefined") {
+              localStorage.setItem("products", JSON.stringify(products.filter((p) => p.id !== id)))
+            }
+            return true
+          }
+        } catch (err) {
+          console.error("Supabase operation failed:", err)
+          // Continue to fallback
+        }
+      }
+
+      // Fallback to local storage only
+      setProducts((prevProducts) => prevProducts.filter((p) => p.id !== id))
+      if (typeof window !== "undefined") {
+        localStorage.setItem("products", JSON.stringify(products.filter((p) => p.id !== id)))
+      }
+      return true
+    } catch (err) {
+      console.error("Error deleting product:", err)
+      toast({
+        title: "Error",
+        description: "Failed to delete product.",
+        variant: "destructive",
+      })
+      return false
+    }
   }
 
   // Toggle product active status
-  const toggleProductStatus = (id: string) => {
-    setProducts((prevProducts) => prevProducts.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p)))
+  const toggleProductStatus = async (id: string) => {
+    const product = products.find((p) => p.id === id)
+    if (!product) return
+
+    const updatedProduct = { ...product, isActive: !product.isActive }
+    await updateProduct(updatedProduct)
   }
 
   // Get products by category
@@ -379,6 +388,9 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     addCategory,
     updateCategory,
     deleteCategory,
+    loading,
+    refreshProducts,
+    useSupabase,
   }
 
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>
